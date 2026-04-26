@@ -1,10 +1,13 @@
 // src/utils/notifications.ts
 // ============================================================
-//  NOTIFICATIONS QUOTIDIENNES — Verset du jour en français
+//  NOTIFICATIONS QUOTIDIENNES — Verset aléatoire de la Bible
 // ============================================================
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
+import Constants from 'expo-constants';
+
+const isExpoGo = Constants.appOwnership === 'expo';
 
 // Configuration du comportement des notifications
 Notifications.setNotificationHandler({
@@ -52,85 +55,96 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 }
 
-// Versets inspirants en français (fallback si bible non chargée)
-export const VERSETS_INSPIRANTS_FR = [
-  { ref: 'Jean 3:16', texte: 'Car Dieu a tant aimé le monde qu\'il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu\'il ait la vie éternelle.' },
-  { ref: 'Psaumes 23:1', texte: 'L\'Éternel est mon berger : je ne manquerai de rien.' },
-  { ref: 'Matthieu 5:3', texte: 'Heureux les pauvres en esprit, car le royaume des cieux est à eux !' },
-  { ref: 'Proverbes 3:5', texte: 'Confie-toi en l\'Éternel de tout ton cœur, et ne t\'appuie pas sur ta sagesse.' },
-  { ref: 'Philippiens 4:13', texte: 'Je puis tout par celui qui me fortifie.' },
-  { ref: 'Romains 8:28', texte: 'Nous savons, du reste, que toutes choses concourent au bien de ceux qui aiment Dieu.' },
-  { ref: 'Ésaïe 40:31', texte: 'Mais ceux qui se confient en l\'Éternel renouvellent leur force. Ils prennent le vol comme les aigles.' },
-  { ref: 'Jérémie 29:11', texte: 'Car je connais les projets que j\'ai formés sur vous, dit l\'Éternel, projets de paix et non de malheur, afin de vous donner un avenir et de l\'espérance.' },
-  { ref: 'Psaumes 46:1', texte: 'Dieu est pour nous un refuge et un appui, un secours qui ne manque jamais dans la détresse.' },
-  { ref: '1 Corinthiens 13:4', texte: 'L\'amour est patient, il est plein de bonté ; l\'amour n\'est point envieux ; l\'amour ne se vante point, il ne s\'enfle point d\'orgueil.' },
-  { ref: 'Matthieu 6:33', texte: 'Cherchez premièrement le royaume et la justice de Dieu ; et toutes ces choses vous seront données par-dessus.' },
-  { ref: 'Psaumes 119:105', texte: 'Ta parole est une lampe à mes pieds, et une lumière sur mon sentier.' },
-  { ref: 'Jacques 1:5', texte: 'Si quelqu\'un d\'entre vous manque de sagesse, qu\'il la demande à Dieu, qui donne à tous libéralement et sans reproche, et elle lui sera donnée.' },
-  { ref: '2 Timothée 1:7', texte: 'Car ce n\'est pas un esprit de timidité que Dieu nous a donné, mais un esprit de force, d\'amour et de sagesse.' },
-  { ref: 'Hébreux 11:1', texte: 'Or la foi est une ferme assurance des choses qu\'on espère, une démonstration de celles qu\'on ne voit pas.' },
-  { ref: 'Apocalypse 21:4', texte: 'Il essuiera toute larme de leurs yeux, et la mort ne sera plus, et il n\'y aura plus ni deuil, ni cri, ni douleur.' },
-  { ref: '1 Jean 4:8', texte: 'Celui qui n\'aime pas n\'a pas connu Dieu, car Dieu est amour.' },
-  { ref: 'Galates 5:22', texte: 'Mais le fruit de l\'Esprit, c\'est l\'amour, la joie, la paix, la patience, la bonté, la bénignité, la fidélité.' },
-  { ref: 'Esaïe 41:10', texte: 'Ne crains rien, car je suis avec toi ; ne promène pas des regards inquiets, car je suis ton Dieu.' },
-  { ref: 'Matthieu 11:28', texte: 'Venez à moi, vous tous qui êtes fatigués et chargés, et je vous donnerai du repos.' },
-];
-
-// Obtenir un verset aléatoire depuis la bible complète ou depuis la liste de secours
-export function getRandomVersetFR(bibleData?: any): { ref: string; texte: string } {
-  // Vérifier si bibleData est valide
-  if (bibleData && bibleData.livres && Array.isArray(bibleData.livres) && bibleData.livres.length > 0) {
-    try {
-      const livres = bibleData.livres;
-      // Filtrer les livres qui ont des chapitres
-      const validLivres = livres.filter((l: any) => l.chapitres && l.chapitres.length > 0);
-      
-      if (validLivres.length > 0) {
-        const livre = validLivres[Math.floor(Math.random() * validLivres.length)];
-        
-        if (livre && livre.chapitres && livre.chapitres.length > 0) {
-          const chapitre = livre.chapitres[Math.floor(Math.random() * livre.chapitres.length)];
-          
-          if (chapitre && chapitre.versets && Array.isArray(chapitre.versets) && chapitre.versets.length > 0) {
-            const verset = chapitre.versets[Math.floor(Math.random() * chapitre.versets.length)];
-            return {
-              ref: `${livre.nom} ${chapitre.numero}:${verset.numero}`,
-              texte: verset.texte,
-            };
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Erreur lors de la sélection du verset aléatoire:', e);
-    }
+// Obtenir un verset aléatoire depuis la bible
+export function getRandomVersetFromBible(bibleData: any): { ref: string; texte: string } | null {
+  if (!bibleData || !bibleData.livres || bibleData.livres.length === 0) {
+    return null;
   }
-  
-  // Fallback: verset depuis la liste inspirante
-  return VERSETS_INSPIRANTS_FR[Math.floor(Math.random() * VERSETS_INSPIRANTS_FR.length)];
+
+  try {
+    const livres = bibleData.livres;
+    const validLivres = livres.filter((l: any) => l.chapitres && l.chapitres.length > 0);
+    
+    if (validLivres.length === 0) return null;
+    
+    const livre = validLivres[Math.floor(Math.random() * validLivres.length)];
+    
+    if (!livre.chapitres || livre.chapitres.length === 0) return null;
+    
+    const chapitre = livre.chapitres[Math.floor(Math.random() * livre.chapitres.length)];
+    
+    if (!chapitre.versets || chapitre.versets.length === 0) return null;
+    
+    const verset = chapitre.versets[Math.floor(Math.random() * chapitre.versets.length)];
+    
+    return {
+      ref: `${livre.nom} ${chapitre.numero}:${verset.numero}`,
+      texte: verset.texte,
+    };
+  } catch (e) {
+    console.error('Erreur lors de la sélection du verset aléatoire:', e);
+    return null;
+  }
 }
 
-// Planifier la notification quotidienne à 8h00
-export async function scheduleDailyVerseNotification(bibleData?: any): Promise<void> {
+// Versets de secours par langue
+const FALLBACK_VERSES: Record<string, Array<{ ref: string; texte: string }>> = {
+  fr: [
+    { ref: 'Jean 3:16', texte: 'Car Dieu a tant aimé le monde qu\'il a donné son Fils unique...' },
+    { ref: 'Psaumes 23:1', texte: 'L\'Éternel est mon berger : je ne manquerai de rien.' },
+    { ref: 'Matthieu 5:3', texte: 'Heureux les pauvres en esprit, car le royaume des cieux est à eux !' },
+  ],
+  en: [
+    { ref: 'John 3:16', texte: 'For God so loved the world that he gave his one and only Son...' },
+    { ref: 'Psalm 23:1', texte: 'The Lord is my shepherd; I shall not want.' },
+    { ref: 'Matthew 5:3', texte: 'Blessed are the poor in spirit, for theirs is the kingdom of heaven.' },
+  ],
+  mg: [
+    { ref: 'Jaona 3:16', texte: 'Fa Andriamanitra dia tia an\'izao tontolo izao tokoa...' },
+    { ref: 'Salamo 23:1', texte: 'Jehovah no Mpiandriko, tsy ho tsy hanan-javatra aho.' },
+    { ref: 'Matio 5:3', texte: 'Sambatra izay malahelo amin\'ny fanahy, fa azy ny fanjakan\'ny lanitra.' },
+  ],
+};
+
+function getFallbackVerse(lang: string): { ref: string; texte: string } {
+  const verses = FALLBACK_VERSES[lang] || FALLBACK_VERSES.fr;
+  return verses[Math.floor(Math.random() * verses.length)];
+}
+
+// Planifier la notification quotidienne
+export async function scheduleDailyVerseNotification(bibleData?: any, lang: string = 'fr'): Promise<void> {
+  if (isExpoGo) {
+    console.log('Notifications désactivées dans Expo Go');
+    return;
+  }
+
   try {
-    // Vérifier si les permissions sont accordées
     const permissions = await Notifications.getPermissionsAsync();
     if (permissions.status !== 'granted') {
-      console.log('Permissions non accordées, impossible de planifier les notifications');
+      console.log('Permissions non accordées');
       return;
     }
 
-    // Annuler toutes les notifications existantes
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    const verset = getRandomVersetFR(bibleData);
+    let verset = getRandomVersetFromBible(bibleData);
+    if (!verset) {
+      verset = getFallbackVerse(lang);
+    }
 
-    // Planifier la notification quotidienne
+    const titles: Record<string, string> = {
+      fr: '📖 Verset du jour',
+      en: '📖 Verse of the day',
+      mg: '📖 Baibolin\'ny andro'
+    };
+    const title = titles[lang] || titles.fr;
+
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '📖 Verset du jour',
+        title: title,
         body: `${verset.ref}\n\n"${verset.texte}"`,
         sound: true,
-        data: { ref: verset.ref, texte: verset.texte, type: 'daily-verse' },
+        data: { ref: verset.ref, texte: verset.texte, lang: lang },
         ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
       },
       trigger: {
@@ -140,7 +154,7 @@ export async function scheduleDailyVerseNotification(bibleData?: any): Promise<v
       } as Notifications.DailyTriggerInput,
     });
 
-    console.log('✅ Notification quotidienne planifiée à 8h00');
+    console.log(`✅ Notification quotidienne planifiée à 8h00 en ${lang}`);
   } catch (error) {
     console.error('❌ Erreur planification notification:', error);
   }
@@ -148,8 +162,25 @@ export async function scheduleDailyVerseNotification(bibleData?: any): Promise<v
 
 // Envoyer une notification immédiate (test)
 export async function sendTestNotification(bibleData?: any): Promise<void> {
+  if (isExpoGo) {
+    console.log('Notifications test désactivées dans Expo Go');
+    if (Platform.OS !== 'web') {
+      const verset = getRandomVersetFromBible(bibleData) || getFallbackVerse('fr');
+      Alert.alert(
+        '📖 Verset du jour',
+        `${verset.ref}\n\n"${verset.texte}"`,
+        [{ text: 'OK' }]
+      );
+    }
+    return;
+  }
+
   try {
-    const verset = getRandomVersetFR(bibleData);
+    let verset = getRandomVersetFromBible(bibleData);
+    if (!verset) {
+      verset = getFallbackVerse('fr');
+    }
+    
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '📖 Verset du jour',
@@ -157,7 +188,7 @@ export async function sendTestNotification(bibleData?: any): Promise<void> {
         sound: true,
         ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
       },
-      trigger: null, // Immédiat
+      trigger: null,
     });
     console.log('✅ Notification test envoyée');
   } catch (error) {
@@ -165,55 +196,4 @@ export async function sendTestNotification(bibleData?: any): Promise<void> {
   }
 }
 
-// Annuler toutes les notifications programmées
-export async function cancelAllNotifications(): Promise<void> {
-  try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('✅ Toutes les notifications ont été annulées');
-  } catch (error) {
-    console.error('❌ Erreur annulation des notifications:', error);
-  }
-}
-
-// Replanifier la notification avec un nouvel horaire
-export async function rescheduleNotification(
-  bibleData?: any, 
-  hour: number = 8, 
-  minute: number = 0
-): Promise<void> {
-  try {
-    await cancelAllNotifications();
-    
-    const permissions = await Notifications.getPermissionsAsync();
-    if (permissions.status !== 'granted') {
-      console.log('Permissions non accordées');
-      return;
-    }
-
-    const verset = getRandomVersetFR(bibleData);
-    
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '📖 Verset du jour',
-        body: `${verset.ref}\n\n"${verset.texte}"`,
-        sound: true,
-        data: { ref: verset.ref, texte: verset.texte },
-        ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
-      },
-      trigger: {
-        hour,
-        minute,
-        repeats: true,
-      } as Notifications.DailyTriggerInput,
-    });
-    
-    console.log(`✅ Notification replanifiée à ${hour}:${minute}`);
-  } catch (error) {
-    console.error('❌ Erreur replanification:', error);
-  }
-}
-
-// Vérifier si les notifications sont supportées
-export function areNotificationsSupported(): boolean {
-  return Device.isDevice;
-}
+export { FALLBACK_VERSES };

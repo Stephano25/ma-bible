@@ -9,6 +9,7 @@ import { Bookmark, LastPosition, UserSettings } from '../types';
 // Import des bibles locales
 const biblesFRRaw = require('../../assets/data/segond_1910.json');
 const biblesENRaw = require('../../assets/data/kjv.json');
+const biblesMGRaw = require('../../assets/data/malgasy.json');
 
 // Fonction pour convertir le format plat en structure hiérarchique
 function convertToHierarchy(data: any): any {
@@ -18,131 +19,86 @@ function convertToHierarchy(data: any): any {
   }
   
   // Si data a une propriété 'verses' (nouveau format)
-  if (data && data.verses && Array.isArray(data.verses)) {
-    const versesArray = data.verses;
-    const booksMap = new Map<string, any>();
-
-    versesArray.forEach((verse: any) => {
-      const bookName = verse.book_name;
-      const bookId = verse.book;
-      const chapterNum = verse.chapter;
-      const verseNum = verse.verse;
-      const text = verse.text;
-
-      if (!booksMap.has(bookName)) {
-        booksMap.set(bookName, {
-          nom: bookName,
-          abrev: bookName.substring(0, 2).toUpperCase(),
-          testament: bookId <= 39 ? 'ancien' : 'nouveau',
-          categorie: bookId <= 39 ? 'Ancien Testament' : 'Nouveau Testament',
-          chapitres: new Map<number, any>()
-        });
-      }
-
-      const book = booksMap.get(bookName);
-      if (!book.chapitres.has(chapterNum)) {
-        book.chapitres.set(chapterNum, {
-          numero: chapterNum,
-          versets: []
-        });
-      }
-
-      const chapter = book.chapitres.get(chapterNum);
-      chapter.versets.push({
-        numero: verseNum,
-        texte: text
-      });
-    });
-
-    const livres = Array.from(booksMap.values()).map((book: any) => ({
-      ...book,
-      chapitres: Array.from(book.chapitres.values())
-        .map((chapter: any) => ({
-          ...chapter,
-          versets: chapter.versets.sort((a: any, b: any) => a.numero - b.numero)
-        }))
-        .sort((a: any, b: any) => a.numero - b.numero)
-    }));
-
-    // Trier les livres par ID
-    livres.sort((a: any, b: any) => {
-      const aId = versesArray.find((v: any) => v.book_name === a.nom)?.book || 0;
-      const bId = versesArray.find((v: any) => v.book_name === b.nom)?.book || 0;
-      return aId - bId;
-    });
-
-    return { livres };
-  }
+  const versesArray = (data && data.verses) ? data.verses : (Array.isArray(data) ? data : null);
   
-  // Si data est un tableau de versets
-  if (Array.isArray(data)) {
-    const booksMap = new Map<string, any>();
-
-    data.forEach((verse: any) => {
-      const bookName = verse.book_name;
-      const bookId = verse.book;
-      const chapterNum = verse.chapter;
-      const verseNum = verse.verse;
-      const text = verse.text;
-
-      if (!booksMap.has(bookName)) {
-        booksMap.set(bookName, {
-          nom: bookName,
-          abrev: bookName.substring(0, 2).toUpperCase(),
-          testament: bookId <= 39 ? 'ancien' : 'nouveau',
-          categorie: bookId <= 39 ? 'Ancien Testament' : 'Nouveau Testament',
-          chapitres: new Map<number, any>()
-        });
-      }
-
-      const book = booksMap.get(bookName);
-      if (!book.chapitres.has(chapterNum)) {
-        book.chapitres.set(chapterNum, {
-          numero: chapterNum,
-          versets: []
-        });
-      }
-
-      const chapter = book.chapitres.get(chapterNum);
-      chapter.versets.push({
-        numero: verseNum,
-        texte: text
-      });
-    });
-
-    const livres = Array.from(booksMap.values()).map((book: any) => ({
-      ...book,
-      chapitres: Array.from(book.chapitres.values())
-        .map((chapter: any) => ({
-          ...chapter,
-          versets: chapter.versets.sort((a: any, b: any) => a.numero - b.numero)
-        }))
-        .sort((a: any, b: any) => a.numero - b.numero)
-    }));
-
-    // Trier les livres par ID
-    livres.sort((a: any, b: any) => {
-      const aId = data.find((v: any) => v.book_name === a.nom)?.book || 0;
-      const bId = data.find((v: any) => v.book_name === b.nom)?.book || 0;
-      return aId - bId;
-    });
-
-    return { livres };
+  if (!versesArray) {
+    console.error('Format de données non reconnu:', Object.keys(data || {}));
+    return { livres: [] };
   }
-  
-  // Si aucun format reconnu
-  console.error('Format de données non reconnu:', Object.keys(data || {}));
-  return { livres: [] };
+
+  const booksMap = new Map<string, any>();
+
+  versesArray.forEach((verse: any) => {
+    const bookName = verse.book_name;
+    const bookId = verse.book;
+    const chapterNum = verse.chapter;
+    const verseNum = verse.verse;
+    const text = verse.text;
+
+    if (!booksMap.has(bookName)) {
+      booksMap.set(bookName, {
+        nom: bookName,
+        abrev: bookName.substring(0, 2).toUpperCase(),
+        testament: bookId <= 39 ? 'ancien' : 'nouveau',
+        categorie: bookId <= 39 ? 'Ancien Testament' : 'Nouveau Testament',
+        chapitres: new Map<number, any>()
+      });
+    }
+
+    const book = booksMap.get(bookName);
+    if (!book.chapitres.has(chapterNum)) {
+      book.chapitres.set(chapterNum, {
+        numero: chapterNum,
+        versets: []
+      });
+    }
+
+    const chapter = book.chapitres.get(chapterNum);
+    chapter.versets.push({
+      numero: verseNum,
+      texte: text
+    });
+  });
+
+  const livres = Array.from(booksMap.values()).map((book: any) => ({
+    ...book,
+    chapitres: Array.from(book.chapitres.values())
+      .map((chapter: any) => ({
+        ...chapter,
+        versets: chapter.versets.sort((a: any, b: any) => a.numero - b.numero)
+      }))
+      .sort((a: any, b: any) => a.numero - b.numero)
+  }));
+
+  // Trier les livres par ID
+  livres.sort((a: any, b: any) => {
+    const aId = versesArray.find((v: any) => v.book_name === a.nom)?.book || 0;
+    const bId = versesArray.find((v: any) => v.book_name === b.nom)?.book || 0;
+    return aId - bId;
+  });
+
+  return { livres };
 }
 
 // Convertir les données
 const biblesFR = convertToHierarchy(biblesFRRaw);
 const biblesEN = convertToHierarchy(biblesENRaw);
+const biblesMG = convertToHierarchy(biblesMGRaw);
 
-console.log('Bible FR chargée:', biblesFR.livres?.length, 'livres');
-console.log('Bible EN chargée:', biblesEN.livres?.length, 'livres');
+console.log('📚 Bibles chargées:', {
+  fr: biblesFR.livres?.length,
+  en: biblesEN.livres?.length,
+  mg: biblesMG.livres?.length
+});
 
-type Lang = 'fr' | 'en';
+type Lang = 'fr' | 'en' | 'mg';
+
+// Noms des langues pour affichage
+export const LANG_NAMES: Record<Lang, { name: string; flag: string; bibleName: string }> = {
+  fr: { name: 'Français', flag: '🇫🇷', bibleName: 'Louis Segond 1910' },
+  en: { name: 'English', flag: '🇬🇧', bibleName: 'King James Version' },
+  mg: { name: 'Malagasy', flag: '🇲🇬', bibleName: 'Baiboly Malagasy' }
+};
 
 interface BibleContextType {
   bibleData: any;
@@ -173,9 +129,8 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
   });
   const [fontSize, setFontSizeState] = useState(18);
 
-  const bibleData = lang === 'fr' ? biblesFR : biblesEN;
+  const bibleData = lang === 'fr' ? biblesFR : lang === 'en' ? biblesEN : biblesMG;
 
-  // Chargement initial des données depuis AsyncStorage
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -191,7 +146,7 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
           const parsed = JSON.parse(st);
           setSettings(parsed);
           if (parsed.fontSize) setFontSizeState(parsed.fontSize);
-          if (parsed.lang) setLangState(parsed.lang);
+          if (parsed.lang) setLangState(parsed.lang as Lang);
         }
       } catch (e) {
         console.error('Load error:', e);

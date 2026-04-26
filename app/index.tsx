@@ -11,10 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../src/context/ThemeContext';
 import { useBible } from '../src/context/BibleContext';
-import { getRandomVersetFR, sendTestNotification } from '../src/utils/notifications';
-
-// Import de la bible FR pour le verset du jour
-const bibleFR = require('../assets/data/segond_1910.json');
+import { getRandomVersetFromBible, sendTestNotification } from '../src/utils/notifications';
 
 export default function AccueilScreen() {
   const { colors, theme, toggleTheme } = useTheme();
@@ -23,9 +20,12 @@ export default function AccueilScreen() {
   const [versetJour, setVersetJour] = useState({ ref: '', texte: '' });
 
   useEffect(() => {
-    // Verset du jour aléatoire depuis la bible FR
-    setVersetJour(getRandomVersetFR(bibleFR));
-  }, []);
+    // Verset du jour aléatoire depuis la bible actuelle
+    const verset = getRandomVersetFromBible(bibleData);
+    if (verset) {
+      setVersetJour(verset);
+    }
+  }, [bibleData]);
 
   const livres = bibleData?.livres || [];
   const progressPercent = lastPosition && livres.length > 0
@@ -42,21 +42,51 @@ export default function AccueilScreen() {
     } catch (e) {}
   };
 
+  // Ordre des langues
+  const getNextLang = () => {
+    const order: Record<string, 'fr' | 'en' | 'mg'> = {
+      'fr': 'en',
+      'en': 'mg',
+      'mg': 'fr'
+    };
+    return order[lang];
+  };
+
+  // Nom de la bible selon la langue
+  const getBibleName = () => {
+    switch(lang) {
+      case 'fr': return 'Louis Segond 1910';
+      case 'en': return 'King James Version';
+      case 'mg': return 'Baiboly Malagasy';
+      default: return 'Louis Segond 1910';
+    }
+  };
+
+  // Drapeau selon la langue
+  const getFlag = () => {
+    switch(lang) {
+      case 'fr': return '🇫🇷 FR';
+      case 'en': return '🇬🇧 EN';
+      case 'mg': return '🇲🇬 MG';
+      default: return '🇫🇷 FR';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Ma Bible</Text>
-          <Text style={styles.headerSub}>{lang === 'fr' ? 'Version Louis Segond 1910' : 'King James Version'}</Text>
+          <Text style={styles.headerSub}>{getBibleName()}</Text>
         </View>
         <View style={styles.headerActions}>
-          {/* Langue */}
+          {/* Langue - 3 options */}
           <TouchableOpacity
             style={styles.langBtn}
-            onPress={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+            onPress={() => setLang(getNextLang())}
           >
-            <Text style={styles.langBtnText}>{lang === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}</Text>
+            <Text style={styles.langBtnText}>{getFlag()}</Text>
           </TouchableOpacity>
           {/* Thème */}
           <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn}>
@@ -70,7 +100,9 @@ export default function AccueilScreen() {
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Ionicons name="sunny" size={18} color={colors.accent} />
-            <Text style={styles.cardTitle}>Verset du jour</Text>
+            <Text style={styles.cardTitle}>
+              {lang === 'fr' ? 'Verset du jour' : lang === 'en' ? 'Verse of the day' : 'Baibolin\'ny andro'}
+            </Text>
             <TouchableOpacity onPress={partagerVerset} style={styles.shareBtn}>
               <Ionicons name="share-outline" size={18} color={colors.primary} />
             </TouchableOpacity>
@@ -79,17 +111,21 @@ export default function AccueilScreen() {
           <Text style={styles.versetRef}>{versetJour.ref}</Text>
           <TouchableOpacity
             style={styles.notifBtn}
-            onPress={() => sendTestNotification(bibleFR)}
+            onPress={() => sendTestNotification(bibleData)}
           >
             <Ionicons name="notifications-outline" size={14} color={colors.primary} />
-            <Text style={styles.notifBtnText}>Tester la notification</Text>
+            <Text style={styles.notifBtnText}>
+              {lang === 'fr' ? 'Tester la notification' : lang === 'en' ? 'Test notification' : 'Andrana ny fampandrenesana'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Continuer la lecture - CORRECTION: route vers /read */}
+        {/* Continuer la lecture */}
         {lastPosition && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Continuer la lecture</Text>
+            <Text style={styles.sectionTitle}>
+              {lang === 'fr' ? 'Continuer la lecture' : lang === 'en' ? 'Continue reading' : 'Hanohy famakiana'}
+            </Text>
             <TouchableOpacity
               style={styles.continueCard}
               onPress={() => router.push({ 
@@ -107,9 +143,11 @@ export default function AccueilScreen() {
               </View>
               <View style={styles.continueInfo}>
                 <Text style={styles.continueName}>{lastPosition.bookName}</Text>
-                <Text style={styles.continueSub}>Chapitre {lastPosition.chapterNum}</Text>
+                <Text style={styles.continueSub}>
+                  {lang === 'fr' ? 'Chapitre' : lang === 'en' ? 'Chapter' : 'Toko'} {lastPosition.chapterNum}
+                </Text>
                 <Text style={[styles.continueSub, { color: colors.accent }]}>
-                  Reprendre →
+                  {lang === 'fr' ? 'Reprendre →' : lang === 'en' ? 'Resume →' : 'Hanohy →'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -117,35 +155,41 @@ export default function AccueilScreen() {
           </View>
         )}
 
-        {/* Accès rapide testaments - CORRECTION: route vers /read */}
+        {/* Accès rapide testaments */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Accès rapide</Text>
+          <Text style={styles.sectionTitle}>
+            {lang === 'fr' ? 'Accès rapide' : lang === 'en' ? 'Quick access' : 'Fidirana haingana'}
+          </Text>
           <View style={styles.testamentRow}>
             <TouchableOpacity
               style={[styles.testamentCard, { backgroundColor: colors.primary }]}
               onPress={() => router.push({ pathname: '/read', params: { testament: 'ancien' } })}
             >
-              <Text style={styles.testamentTitle}>Ancien{'\n'}Testament</Text>
-              <Text style={styles.testamentCount}>39 livres</Text>
+              <Text style={styles.testamentTitle}>
+                {lang === 'fr' ? 'Ancien\nTestament' : lang === 'en' ? 'Old\nTestament' : 'Testamenta\nTaloha'}
+              </Text>
+              <Text style={styles.testamentCount}>39 {lang === 'fr' ? 'livres' : lang === 'en' ? 'books' : 'boky'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.testamentCard, { backgroundColor: colors.primaryDark }]}
               onPress={() => router.push({ pathname: '/read', params: { testament: 'nouveau' } })}
             >
-              <Text style={styles.testamentTitle}>Nouveau{'\n'}Testament</Text>
-              <Text style={styles.testamentCount}>27 livres</Text>
+              <Text style={styles.testamentTitle}>
+                {lang === 'fr' ? 'Nouveau\nTestament' : lang === 'en' ? 'New\nTestament' : 'Testamenta\nVaovao'}
+              </Text>
+              <Text style={styles.testamentCount}>27 {lang === 'fr' ? 'livres' : lang === 'en' ? 'books' : 'boky'}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Lien vers la liste des livres - CORRECTION: route vers /book */}
+        {/* Lien vers la liste des livres */}
         <TouchableOpacity
           style={styles.bookListBtn}
           onPress={() => router.push('/book')}
         >
           <Ionicons name="library" size={20} color={colors.primary} />
           <Text style={[styles.bookListBtnText, { color: colors.primary }]}>
-            Voir tous les livres →
+            {lang === 'fr' ? 'Voir tous les livres →' : lang === 'en' ? 'See all books →' : 'Hijery ny boky rehetra →'}
           </Text>
         </TouchableOpacity>
 
@@ -153,15 +197,21 @@ export default function AccueilScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{bookmarks.length}</Text>
-            <Text style={styles.statLabel}>Favoris</Text>
+            <Text style={styles.statLabel}>
+              {lang === 'fr' ? 'Favoris' : lang === 'en' ? 'Favorites' : 'Tiany'}
+            </Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{livres.length}</Text>
-            <Text style={styles.statLabel}>Livres</Text>
+            <Text style={styles.statLabel}>
+              {lang === 'fr' ? 'Livres' : lang === 'en' ? 'Books' : 'Boky'}
+            </Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{progressPercent}%</Text>
-            <Text style={styles.statLabel}>Progression</Text>
+            <Text style={styles.statLabel}>
+              {lang === 'fr' ? 'Progression' : lang === 'en' ? 'Progress' : 'Fandrosoana'}
+            </Text>
           </View>
         </View>
       </ScrollView>
