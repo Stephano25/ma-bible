@@ -48,7 +48,7 @@ export default function BookScreen() {
 
   const handleSelectBook = (bookIndex: number) => {
     router.push({
-      pathname: '/lecture',
+      pathname: '/read',
       params: { bookIndex, viewMode: 'chapitres' },
     });
   };

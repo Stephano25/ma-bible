@@ -183,7 +183,7 @@ export default function RechercheScreen() {
             onPress={() => {
               Keyboard.dismiss();
               router.push({
-                pathname: '/lecture',
+                pathname: '/read',
                 params: { bookIndex: item.bookIndex, chapterIndex: item.chapterIndex },
               });
             }}

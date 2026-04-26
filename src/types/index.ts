@@ -56,7 +56,7 @@ export interface ReadingStats {
   progress: number;
 }
 
-// Catégories des livres
+// Catégories des livres (optionnel, pour référence)
 export const CATEGORIES_AT: Record<string, string> = {
   'Pentateuque': 'Pentateuque',
   'Livres historiques': 'Livres historiques',

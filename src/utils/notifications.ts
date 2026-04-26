@@ -4,8 +4,7 @@
 // ============================================================
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 
 // Configuration du comportement des notifications
 Notifications.setNotificationHandler({
@@ -23,33 +22,38 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     return false;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
 
-  if (finalStatus !== 'granted') {
-    console.log('Permission de notification refusée');
+    if (finalStatus !== 'granted') {
+      console.log('Permission de notification refusée');
+      return false;
+    }
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('verset-du-jour', {
+        name: 'Verset du jour',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C47F17',
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la demande de permissions:', error);
     return false;
   }
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('verset-du-jour', {
-      name: 'Verset du jour',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#C47F17',
-    });
-  }
-
-  return true;
 }
 
 // Versets inspirants en français (fallback si bible non chargée)
-const VERSETS_INSPIRANTS_FR = [
+export const VERSETS_INSPIRANTS_FR = [
   { ref: 'Jean 3:16', texte: 'Car Dieu a tant aimé le monde qu\'il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu\'il ait la vie éternelle.' },
   { ref: 'Psaumes 23:1', texte: 'L\'Éternel est mon berger : je ne manquerai de rien.' },
   { ref: 'Matthieu 5:3', texte: 'Heureux les pauvres en esprit, car le royaume des cieux est à eux !' },
@@ -74,41 +78,59 @@ const VERSETS_INSPIRANTS_FR = [
 
 // Obtenir un verset aléatoire depuis la bible complète ou depuis la liste de secours
 export function getRandomVersetFR(bibleData?: any): { ref: string; texte: string } {
-  if (bibleData && bibleData.livres && bibleData.livres.length > 0) {
+  // Vérifier si bibleData est valide
+  if (bibleData && bibleData.livres && Array.isArray(bibleData.livres) && bibleData.livres.length > 0) {
     try {
       const livres = bibleData.livres;
-      const livre = livres[Math.floor(Math.random() * livres.length)];
-      if (livre && livre.chapitres && livre.chapitres.length > 0) {
-        const chapitre = livre.chapitres[Math.floor(Math.random() * livre.chapitres.length)];
-        if (chapitre && chapitre.versets && chapitre.versets.length > 0) {
-          const verset = chapitre.versets[Math.floor(Math.random() * chapitre.versets.length)];
-          return {
-            ref: `${livre.nom} ${chapitre.numero}:${verset.numero}`,
-            texte: verset.texte,
-          };
+      // Filtrer les livres qui ont des chapitres
+      const validLivres = livres.filter((l: any) => l.chapitres && l.chapitres.length > 0);
+      
+      if (validLivres.length > 0) {
+        const livre = validLivres[Math.floor(Math.random() * validLivres.length)];
+        
+        if (livre && livre.chapitres && livre.chapitres.length > 0) {
+          const chapitre = livre.chapitres[Math.floor(Math.random() * livre.chapitres.length)];
+          
+          if (chapitre && chapitre.versets && Array.isArray(chapitre.versets) && chapitre.versets.length > 0) {
+            const verset = chapitre.versets[Math.floor(Math.random() * chapitre.versets.length)];
+            return {
+              ref: `${livre.nom} ${chapitre.numero}:${verset.numero}`,
+              texte: verset.texte,
+            };
+          }
         }
       }
     } catch (e) {
-      // Fallback
+      console.error('Erreur lors de la sélection du verset aléatoire:', e);
     }
   }
+  
+  // Fallback: verset depuis la liste inspirante
   return VERSETS_INSPIRANTS_FR[Math.floor(Math.random() * VERSETS_INSPIRANTS_FR.length)];
 }
 
 // Planifier la notification quotidienne à 8h00
 export async function scheduleDailyVerseNotification(bibleData?: any): Promise<void> {
   try {
+    // Vérifier si les permissions sont accordées
+    const permissions = await Notifications.getPermissionsAsync();
+    if (permissions.status !== 'granted') {
+      console.log('Permissions non accordées, impossible de planifier les notifications');
+      return;
+    }
+
     // Annuler toutes les notifications existantes
     await Notifications.cancelAllScheduledNotificationsAsync();
 
     const verset = getRandomVersetFR(bibleData);
 
+    // Planifier la notification quotidienne
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '📖 Verset du jour',
-        body: `${verset.ref}\n\n${verset.texte}`,
+        body: `${verset.ref}\n\n"${verset.texte}"`,
         sound: true,
-        data: { ref: verset.ref, texte: verset.texte },
+        data: { ref: verset.ref, texte: verset.texte, type: 'daily-verse' },
         ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
       },
       trigger: {
@@ -126,16 +148,72 @@ export async function scheduleDailyVerseNotification(bibleData?: any): Promise<v
 
 // Envoyer une notification immédiate (test)
 export async function sendTestNotification(bibleData?: any): Promise<void> {
-  const verset = getRandomVersetFR(bibleData);
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '📖 Verset du jour',
-      body: `${verset.ref}\n\n${verset.texte}`,
-      sound: true,
-      ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
-    },
-    trigger: null, // Immédiat
-  });
+  try {
+    const verset = getRandomVersetFR(bibleData);
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '📖 Verset du jour',
+        body: `${verset.ref}\n\n"${verset.texte}"`,
+        sound: true,
+        ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
+      },
+      trigger: null, // Immédiat
+    });
+    console.log('✅ Notification test envoyée');
+  } catch (error) {
+    console.error('❌ Erreur envoi notification test:', error);
+  }
 }
 
-export { VERSETS_INSPIRANTS_FR };
+// Annuler toutes les notifications programmées
+export async function cancelAllNotifications(): Promise<void> {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    console.log('✅ Toutes les notifications ont été annulées');
+  } catch (error) {
+    console.error('❌ Erreur annulation des notifications:', error);
+  }
+}
+
+// Replanifier la notification avec un nouvel horaire
+export async function rescheduleNotification(
+  bibleData?: any, 
+  hour: number = 8, 
+  minute: number = 0
+): Promise<void> {
+  try {
+    await cancelAllNotifications();
+    
+    const permissions = await Notifications.getPermissionsAsync();
+    if (permissions.status !== 'granted') {
+      console.log('Permissions non accordées');
+      return;
+    }
+
+    const verset = getRandomVersetFR(bibleData);
+    
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '📖 Verset du jour',
+        body: `${verset.ref}\n\n"${verset.texte}"`,
+        sound: true,
+        data: { ref: verset.ref, texte: verset.texte },
+        ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
+      },
+      trigger: {
+        hour,
+        minute,
+        repeats: true,
+      } as Notifications.DailyTriggerInput,
+    });
+    
+    console.log(`✅ Notification replanifiée à ${hour}:${minute}`);
+  } catch (error) {
+    console.error('❌ Erreur replanification:', error);
+  }
+}
+
+// Vérifier si les notifications sont supportées
+export function areNotificationsSupported(): boolean {
+  return Device.isDevice;
+}

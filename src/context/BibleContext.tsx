@@ -6,14 +6,106 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Bookmark, LastPosition, UserSettings } from '../types';
 
-// Import des bibles locales
-const biblesFR = require('../../assets/data/segond_19.json');
-const biblesEN = require('../../assets/data/kjv.json');
+// Import des bibles locales (format plat: liste de versets)
+const biblesFRRaw = require('../../assets/data/segond_1910.json');
+const biblesENRaw = require('../../assets/data/kjv.json');
+
+// Type pour un verset dans le format plat
+interface RawVerset {
+  book_name: string;
+  book: number;
+  chapter: number;
+  verse: number;
+  text: string;
+}
+
+// Type pour un verset dans le format hiérarchique
+interface Verset {
+  numero: number;
+  texte: string;
+}
+
+interface Chapitre {
+  numero: number;
+  versets: Verset[];
+}
+
+interface Livre {
+  nom: string;
+  abrev: string;
+  testament: 'ancien' | 'nouveau';
+  categorie: string;
+  chapitres: Chapitre[];
+}
+
+interface BibleData {
+  livres: Livre[];
+}
+
+// Fonction pour convertir le format plat en structure hiérarchique
+function convertToHierarchy(data: RawVerset[]): BibleData {
+  const booksMap = new Map<string, any>();
+
+  data.forEach((verse: RawVerset) => {
+    const bookName = verse.book_name;
+    const bookId = verse.book;
+    const chapterNum = verse.chapter;
+    const verseNum = verse.verse;
+    const text = verse.text;
+
+    if (!booksMap.has(bookName)) {
+      booksMap.set(bookName, {
+        nom: bookName,
+        abrev: bookName.substring(0, 2).toUpperCase(),
+        testament: bookId <= 39 ? 'ancien' : 'nouveau',
+        categorie: bookId <= 39 ? 'Ancien Testament' : 'Nouveau Testament',
+        chapitres: new Map<number, any>()
+      });
+    }
+
+    const book = booksMap.get(bookName);
+    if (!book.chapitres.has(chapterNum)) {
+      book.chapitres.set(chapterNum, {
+        numero: chapterNum,
+        versets: []
+      });
+    }
+
+    const chapter = book.chapitres.get(chapterNum);
+    chapter.versets.push({
+      numero: verseNum,
+      texte: text
+    });
+  });
+
+  const livres = Array.from(booksMap.values()).map((book: any) => ({
+    ...book,
+    chapitres: Array.from(book.chapitres.values())
+      .map((chapter: any) => ({
+        ...chapter,
+        versets: chapter.versets.sort((a: Verset, b: Verset) => a.numero - b.numero)
+      }))
+      .sort((a: Chapitre, b: Chapitre) => a.numero - b.numero)
+  }));
+
+  // Trier les livres par ID
+  livres.sort((a: any, b: any) => {
+    const aId = data.find((v: RawVerset) => v.book_name === a.nom)?.book || 0;
+    const bId = data.find((v: RawVerset) => v.book_name === b.nom)?.book || 0;
+    return aId - bId;
+  });
+
+  return { livres };
+}
+
+// Convertir les données au chargement
+const biblesFR = convertToHierarchy(biblesFRRaw);
+const biblesEN = convertToHierarchy(biblesENRaw);
 
 type Lang = 'fr' | 'en';
 
 interface BibleContextType {
-  bibleData: any;
+  bibleData: BibleData;
   lang: Lang;
   setLang: (l: Lang) => void;
   bookmarks: Bookmark[];
@@ -34,7 +126,11 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Lang>('fr');
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [lastPosition, setLastPosition] = useState<LastPosition | null>(null);
-  const [settings, setSettings] = useState<UserSettings>({ fontSize: 18, theme: 'light', lang: 'fr' });
+  const [settings, setSettings] = useState<UserSettings>({ 
+    fontSize: 18, 
+    theme: 'light', 
+    lang: 'fr' 
+  });
   const [fontSize, setFontSizeState] = useState(18);
 
   const bibleData = lang === 'fr' ? biblesFR : biblesEN;

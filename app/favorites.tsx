@@ -56,7 +56,7 @@ export default function FavorisScreen() {
     // On extrait bookIndex depuis l'id (format: bookIndex-chapterIndex-verseNum-lang)
     const parts = bm.id.split('-');
     router.push({
-      pathname: '/lecture',
+      pathname: '/read',
       params: { bookIndex: parts[0], chapterIndex: parts[1] },
     });
   };

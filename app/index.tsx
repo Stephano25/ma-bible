@@ -5,14 +5,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  SafeAreaView, Switch, Share, Platform,
+  SafeAreaView, Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../src/context/ThemeContext';
 import { useBible } from '../src/context/BibleContext';
-import { getRandomVersetFR } from '../src/utils/notifications';
-import { sendTestNotification } from '../src/utils/notifications';
+import { getRandomVersetFR, sendTestNotification } from '../src/utils/notifications';
+
+// Import de la bible FR pour le verset du jour
+const bibleFR = require('../assets/data/segond_1910.json');
 
 export default function AccueilScreen() {
   const { colors, theme, toggleTheme } = useTheme();
@@ -21,15 +23,13 @@ export default function AccueilScreen() {
   const [versetJour, setVersetJour] = useState({ ref: '', texte: '' });
 
   useEffect(() => {
-    // Verset du jour aléatoire depuis la bible FR (toujours en français)
-    const bibleFR = require('../assets/data/segond_19.json');
+    // Verset du jour aléatoire depuis la bible FR
     setVersetJour(getRandomVersetFR(bibleFR));
   }, []);
 
   const livres = bibleData?.livres || [];
-  const totalChapitres = livres.reduce((acc: number, l: any) => acc + (l.chapitres?.length || 0), 0);
-  const progressPercent = lastPosition
-    ? Math.round((lastPosition.bookIndex / livres.length) * 100)
+  const progressPercent = lastPosition && livres.length > 0
+    ? Math.round(((lastPosition.bookIndex + 1) / livres.length) * 100)
     : 0;
 
   const styles = makeStyles(colors);
@@ -48,7 +48,7 @@ export default function AccueilScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Ma Bible</Text>
-          <Text style={styles.headerSub}>{lang === 'fr' ? 'Version Louis Segond' : 'King James Version'}</Text>
+          <Text style={styles.headerSub}>{lang === 'fr' ? 'Version Louis Segond 1910' : 'King James Version'}</Text>
         </View>
         <View style={styles.headerActions}>
           {/* Langue */}
@@ -79,20 +79,26 @@ export default function AccueilScreen() {
           <Text style={styles.versetRef}>{versetJour.ref}</Text>
           <TouchableOpacity
             style={styles.notifBtn}
-            onPress={() => sendTestNotification(require('../assets/data/segond_19.json'))}
+            onPress={() => sendTestNotification(bibleFR)}
           >
             <Ionicons name="notifications-outline" size={14} color={colors.primary} />
             <Text style={styles.notifBtnText}>Tester la notification</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Continuer la lecture */}
+        {/* Continuer la lecture - CORRECTION: route vers /read */}
         {lastPosition && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Continuer la lecture</Text>
             <TouchableOpacity
               style={styles.continueCard}
-              onPress={() => router.push({ pathname: '/lecture', params: { bookIndex: lastPosition.bookIndex, chapterIndex: lastPosition.chapterIndex } })}
+              onPress={() => router.push({ 
+                pathname: '/read', 
+                params: { 
+                  bookIndex: lastPosition.bookIndex, 
+                  chapterIndex: lastPosition.chapterIndex 
+                } 
+              })}
             >
               <View style={styles.continueAvatar}>
                 <Text style={styles.continueAvatarText}>
@@ -111,26 +117,37 @@ export default function AccueilScreen() {
           </View>
         )}
 
-        {/* Accès rapide testaments */}
+        {/* Accès rapide testaments - CORRECTION: route vers /read */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Accès rapide</Text>
           <View style={styles.testamentRow}>
             <TouchableOpacity
               style={[styles.testamentCard, { backgroundColor: colors.primary }]}
-              onPress={() => router.push({ pathname: '/lecture', params: { testament: 'ancien' } })}
+              onPress={() => router.push({ pathname: '/read', params: { testament: 'ancien' } })}
             >
               <Text style={styles.testamentTitle}>Ancien{'\n'}Testament</Text>
               <Text style={styles.testamentCount}>39 livres</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.testamentCard, { backgroundColor: colors.primaryDark }]}
-              onPress={() => router.push({ pathname: '/lecture', params: { testament: 'nouveau' } })}
+              onPress={() => router.push({ pathname: '/read', params: { testament: 'nouveau' } })}
             >
               <Text style={styles.testamentTitle}>Nouveau{'\n'}Testament</Text>
               <Text style={styles.testamentCount}>27 livres</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Lien vers la liste des livres - CORRECTION: route vers /book */}
+        <TouchableOpacity
+          style={styles.bookListBtn}
+          onPress={() => router.push('/book')}
+        >
+          <Ionicons name="library" size={20} color={colors.primary} />
+          <Text style={[styles.bookListBtnText, { color: colors.primary }]}>
+            Voir tous les livres →
+          </Text>
+        </TouchableOpacity>
 
         {/* Stats */}
         <View style={styles.statsRow}>
@@ -239,6 +256,17 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   testamentTitle: { color: '#fff', fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
   testamentCount: { color: 'rgba(255,255,255,0.75)', fontSize: 12 },
+  bookListBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceAlt,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  bookListBtnText: { fontSize: 14, fontWeight: '600' },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
