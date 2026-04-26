@@ -8,7 +8,7 @@
     "icon": "./assets/bible.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/bible.png",
+      "image": "./assets/splash-icon.png",
       "backgroundColor": "#2C2C2E",
       "resizeMode": "contain"
     },
@@ -31,8 +31,11 @@
       },
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM"
-      ]
+      ],
+      "package": "com.anonymous.mabible"
     },
     "ios": {
       "icon": "./assets/bible.png",
@@ -40,6 +43,12 @@
     },
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c233fb59-8c05-4d1f-85f9-6034614fdac4"
+      }
     }
   }
 }
