@@ -1,12 +1,9 @@
 // app/book.tsx
-// ============================================================
-//  ÉCRAN LISTE DES LIVRES — Navigation par livre
-// ============================================================
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  SafeAreaView, TextInput,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useBible } from '../src/context/contexts';

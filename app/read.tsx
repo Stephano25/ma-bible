@@ -1,7 +1,4 @@
 // app/lecture.tsx
-// ============================================================
-//  ÉCRAN LECTURE — Navigation Livre → Chapitre → Versets
-// ============================================================
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
