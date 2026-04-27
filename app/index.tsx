@@ -1,4 +1,7 @@
 // app/index.tsx
+// ============================================================
+//  ÉCRAN ACCUEIL
+// ============================================================
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
@@ -8,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../src/context/ThemeContext';
 import { useBible } from '../src/context/BibleContext';
-import { getRandomVersetFromBible, sendTestNotification } from '../src/utils/notifications';
+import { getRandomVersetFromBible } from '../src/utils/notifications';
 
 export default function AccueilScreen() {
   const { colors, theme, toggleTheme } = useTheme();
@@ -93,7 +96,7 @@ export default function AccueilScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Verset du jour */}
+        {/* Verset du jour - SANS LE BOUTON DE TEST */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Ionicons name="sunny" size={18} color={colors.accent} />
@@ -106,15 +109,7 @@ export default function AccueilScreen() {
           </View>
           <Text style={[styles.versetTexte, { fontSize }]}>"{versetJour.texte}"</Text>
           <Text style={styles.versetRef}>{versetJour.ref}</Text>
-          <TouchableOpacity
-            style={styles.notifBtn}
-            onPress={() => sendTestNotification(bibleData)}
-          >
-            <Ionicons name="notifications-outline" size={14} color={colors.primary} />
-            <Text style={styles.notifBtnText}>
-              {lang === 'fr' ? 'Tester la notification' : lang === 'en' ? 'Test notification' : 'Andrana ny fampandrenesana'}
-            </Text>
-          </TouchableOpacity>
+          {/* BOUTON DE TEST SUPPRIMÉ */}
         </View>
 
         {/* Continuer la lecture */}
@@ -254,18 +249,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
   shareBtn: { padding: 4 },
   versetTexte: { color: colors.text, fontStyle: 'italic', lineHeight: 28, marginBottom: 10 },
   versetRef: { color: colors.primary, fontWeight: '700', fontSize: 14 },
-  notifBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  notifBtnText: { color: colors.primary, fontSize: 12, fontWeight: '600' },
   section: { marginBottom: 16 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 10 },
   continueCard: {

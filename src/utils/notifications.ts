@@ -1,7 +1,4 @@
 // src/utils/notifications.ts
-// ============================================================
-//  NOTIFICATIONS QUOTIDIENNES — Verset aléatoire de la Bible
-// ============================================================
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
@@ -9,7 +6,7 @@ import Constants from 'expo-constants';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 
-// Configuration du comportement des notifications
+// Configuration du handler de notification
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -20,8 +17,13 @@ Notifications.setNotificationHandler({
 
 // Demander les permissions
 export async function requestNotificationPermissions(): Promise<boolean> {
+  if (isExpoGo) {
+    console.log('⚠️ Notifications désactivées dans Expo Go');
+    return false;
+  }
+
   if (!Device.isDevice) {
-    console.log('Notifications non disponibles sur simulateur');
+    console.log('⚠️ Notifications non disponibles sur simulateur');
     return false;
   }
 
@@ -35,7 +37,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('Permission de notification refusée');
+      console.log('❌ Permission de notification refusée');
       return false;
     }
 
@@ -48,6 +50,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       });
     }
 
+    console.log('✅ Permissions de notification accordées');
     return true;
   } catch (error) {
     console.error('Erreur lors de la demande de permissions:', error);
@@ -111,17 +114,17 @@ function getFallbackVerse(lang: string): { ref: string; texte: string } {
   return verses[Math.floor(Math.random() * verses.length)];
 }
 
-// Planifier la notification quotidienne
+// Planifier la notification quotidienne à 7h00
 export async function scheduleDailyVerseNotification(bibleData?: any, lang: string = 'fr'): Promise<void> {
   if (isExpoGo) {
-    console.log('Notifications désactivées dans Expo Go');
+    console.log('⚠️ Notifications quotidiennes désactivées dans Expo Go');
     return;
   }
 
   try {
     const permissions = await Notifications.getPermissionsAsync();
     if (permissions.status !== 'granted') {
-      console.log('Permissions non accordées');
+      console.log('❌ Permissions non accordées, impossible de planifier');
       return;
     }
 
@@ -139,46 +142,53 @@ export async function scheduleDailyVerseNotification(bibleData?: any, lang: stri
     };
     const title = titles[lang] || titles.fr;
 
+    // Calculer l'heure de la prochaine notification
+    const scheduledTime = new Date();
+    scheduledTime.setHours(7, 0, 0, 0);
+    
+    if (scheduledTime <= new Date()) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    // Déclaration du trigger avec typage explicite
+    const trigger: { date: Date; repeats: boolean } = {
+      date: scheduledTime,
+      repeats: true,
+    };
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: title,
         body: `${verset.ref}\n\n"${verset.texte}"`,
         sound: true,
         data: { ref: verset.ref, texte: verset.texte, lang: lang },
-        ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
       },
-      trigger: {
-        hour: 8,
-        minute: 0,
-        repeats: true,
-      } as Notifications.DailyTriggerInput,
+      trigger: trigger,
     });
 
-    console.log(`✅ Notification quotidienne planifiée à 8h00 en ${lang}`);
+    console.log(`✅ Notification quotidienne planifiée à 7h00 en ${lang}`);
   } catch (error) {
     console.error('❌ Erreur planification notification:', error);
   }
 }
 
 // Envoyer une notification immédiate (test)
-export async function sendTestNotification(bibleData?: any): Promise<void> {
+export async function sendTestNotification(bibleData?: any, lang: string = 'fr'): Promise<void> {
   if (isExpoGo) {
-    console.log('Notifications test désactivées dans Expo Go');
-    if (Platform.OS !== 'web') {
-      const verset = getRandomVersetFromBible(bibleData) || getFallbackVerse('fr');
-      Alert.alert(
-        '📖 Verset du jour',
-        `${verset.ref}\n\n"${verset.texte}"`,
-        [{ text: 'OK' }]
-      );
-    }
+    console.log('📱 Notifications test désactivées dans Expo Go');
+    const verset = getRandomVersetFromBible(bibleData) || getFallbackVerse(lang);
+    Alert.alert(
+      '📖 Verset du jour',
+      `${verset.ref}\n\n"${verset.texte}"`,
+      [{ text: 'OK' }]
+    );
     return;
   }
 
   try {
     let verset = getRandomVersetFromBible(bibleData);
     if (!verset) {
-      verset = getFallbackVerse('fr');
+      verset = getFallbackVerse(lang);
     }
     
     await Notifications.scheduleNotificationAsync({
@@ -186,13 +196,24 @@ export async function sendTestNotification(bibleData?: any): Promise<void> {
         title: '📖 Verset du jour',
         body: `${verset.ref}\n\n"${verset.texte}"`,
         sound: true,
-        ...(Platform.OS === 'android' && { channelId: 'verset-du-jour' }),
       },
       trigger: null,
     });
     console.log('✅ Notification test envoyée');
   } catch (error) {
     console.error('❌ Erreur envoi notification test:', error);
+  }
+}
+
+// Annuler toutes les notifications
+export async function cancelAllNotifications(): Promise<void> {
+  if (isExpoGo) return;
+  
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    console.log('✅ Toutes les notifications ont été annulées');
+  } catch (error) {
+    console.error('❌ Erreur annulation:', error);
   }
 }
 

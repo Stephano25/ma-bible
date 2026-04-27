@@ -34,7 +34,7 @@ export interface Bookmark {
   text: string;
   addedAt: string;
   category: string;
-  lang: 'fr' | 'en';
+  lang: 'fr' | 'en' | 'mg';  // ✅ Ajout de 'mg'
 }
 
 export interface LastPosition {
@@ -47,7 +47,7 @@ export interface LastPosition {
 export interface UserSettings {
   fontSize: number;
   theme: 'light' | 'dark';
-  lang: 'fr' | 'en';
+  lang: 'fr' | 'en' | 'mg';  // ✅ Ajout de 'mg'
 }
 
 export interface ReadingStats {

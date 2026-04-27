@@ -1,4 +1,4 @@
-// app/lecture.tsx
+// app/read.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
@@ -22,7 +22,9 @@ export default function LectureScreen() {
   const [selectedChapterIndex, setSelectedChapterIndex] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [filterTestament, setFilterTestament] = useState<'all' | 'ancien' | 'nouveau'>('all');
+  const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const verseRefs = useRef<Map<number, View>>(new Map());
 
   const livres = bibleData?.livres || [];
 
@@ -35,7 +37,24 @@ export default function LectureScreen() {
     if (params.testament) {
       setFilterTestament(params.testament as any);
     }
-  }, []);
+    if (params.highlightVerse) {
+      console.log('🎯 Verset à surligner:', params.highlightVerse);
+      setHighlightedVerse(Number(params.highlightVerse));
+    }
+    const timer = setTimeout(() => {
+      if (params.highlightVerse) {
+        const verseNum = Number(params.highlightVerse);
+        const ref = verseRefs.current.get(verseNum);
+        if (ref && scrollRef.current) {
+          ref.measureLayout(scrollRef.current as any, (x, y) => {
+            scrollRef.current?.scrollTo({ y: y - 100, animated: true });
+          });
+        }
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [params.bookIndex, params.chapterIndex, params.testament, params.highlightVerse]);
 
   // Regrouper livres par catégorie
   const livresFiltres = livres.filter((l: any) => {
@@ -75,6 +94,7 @@ export default function LectureScreen() {
       chapterNum: chapterIndex + 1,
     });
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setHighlightedVerse(null);
   };
 
   const toggleBookmark = (versetNum: number, texte: string) => {
@@ -91,7 +111,7 @@ export default function LectureScreen() {
         text: texte,
         addedAt: new Date().toISOString(),
         category: 'general',
-        lang,
+        lang: lang as 'fr' | 'en' | 'mg',
       };
       addBookmark(bm);
     }
@@ -110,8 +130,9 @@ export default function LectureScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Livres de la Bible</Text>
-          {/* Filtre testament */}
+          <Text style={styles.headerTitle}>
+            {lang === 'fr' ? 'Livres de la Bible' : lang === 'en' ? 'Books of the Bible' : 'Boky ny Baiboly'}
+          </Text>
           <View style={styles.filterRow}>
             {(['all', 'ancien', 'nouveau'] as const).map((f) => (
               <TouchableOpacity
@@ -120,7 +141,7 @@ export default function LectureScreen() {
                 onPress={() => setFilterTestament(f)}
               >
                 <Text style={[styles.filterBtnText, filterTestament === f && styles.filterBtnTextActive]}>
-                  {f === 'all' ? 'Tous' : f === 'ancien' ? 'A.T.' : 'N.T.'}
+                  {f === 'all' ? (lang === 'fr' ? 'Tous' : lang === 'en' ? 'All' : 'Rehetra') : f === 'ancien' ? (lang === 'fr' ? 'A.T.' : 'O.T.') : (lang === 'fr' ? 'N.T.' : 'N.T.')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -200,7 +221,6 @@ export default function LectureScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header lecture */}
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.headerText} />
@@ -214,7 +234,6 @@ export default function LectureScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Navigation chapitre */}
       <View style={styles.chapterNav}>
         <TouchableOpacity
           disabled={selectedChapterIndex === 0}
@@ -243,17 +262,37 @@ export default function LectureScreen() {
         {versets.map((v: any) => {
           const id = `${selectedBookIndex}-${selectedChapterIndex}-${v.numero}-${lang}`;
           const bookmarked = isBookmarked(id);
+          const isHighlighted = highlightedVerse === v.numero;
+          
           return (
             <TouchableOpacity
               key={v.numero}
-              style={[styles.verset, bookmarked && styles.versetBookmarked]}
+              ref={ref => {
+                if (ref && isHighlighted) {
+                  verseRefs.current.set(v.numero, ref as View);
+                }
+              }}
+              style={[
+                styles.verset, 
+                bookmarked && styles.versetBookmarked,
+                isHighlighted && styles.versetHighlighted
+              ]}
               onLongPress={() => partagerVerset(v.numero, v.texte)}
               onPress={() => toggleBookmark(v.numero, v.texte)}
             >
-              <Text style={styles.versetNum}>{v.numero}</Text>
-              <Text style={[styles.versetText, { fontSize }]}>{v.texte}</Text>
+              <Text style={[styles.versetNum, isHighlighted && { color: colors.primary, fontWeight: 'bold' }]}>
+                {v.numero}
+              </Text>
+              <Text style={[styles.versetText, { fontSize }, isHighlighted && { fontWeight: '600', color: colors.primary }]}>
+                {v.texte}
+              </Text>
               {bookmarked && (
                 <Ionicons name="bookmark" size={16} color={colors.accent} style={styles.versetIcon} />
+              )}
+              {isHighlighted && (
+                <View style={[styles.highlightBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.highlightBadgeText}>★</Text>
+                </View>
               )}
             </TouchableOpacity>
           );
@@ -261,11 +300,12 @@ export default function LectureScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Modal réglages typographie */}
       <Modal visible={showSettings} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowSettings(false)}>
           <View style={[styles.settingsPanel, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.settingsTitle, { color: colors.text }]}>Taille du texte</Text>
+            <Text style={[styles.settingsTitle, { color: colors.text }]}>
+              {lang === 'fr' ? 'Taille du texte' : lang === 'en' ? 'Text size' : 'Haben\'ny soratra'}
+            </Text>
             <View style={styles.fontSizeRow}>
               {[14, 16, 18, 20, 22, 24].map((s) => (
                 <TouchableOpacity
@@ -280,8 +320,9 @@ export default function LectureScreen() {
               ))}
             </View>
             <Text style={[styles.settingsHint, { color: colors.textMuted }]}>
-              Appuyez sur un verset pour l'ajouter aux favoris.{'\n'}
-              Maintenez pour partager.
+              {lang === 'fr' ? 'Appuyez sur un verset pour l\'ajouter aux favoris.\nMaintenez pour partager.' : 
+               lang === 'en' ? 'Tap on a verse to add to favorites.\nLong press to share.' : 
+               'Tsindrio ny andinin-teny raha te hampiditra azy ao amin\'ny tiako.\nTsindrio ela raha te hizara.'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -391,6 +432,14 @@ const makeStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 4,
   },
+  versetHighlighted: {
+    backgroundColor: 'rgba(196, 127, 23, 0.15)',
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
   versetNum: {
     fontSize: 11,
     fontWeight: '700',
@@ -401,6 +450,21 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   versetText: { flex: 1, color: colors.text, lineHeight: 26, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
   versetIcon: { marginTop: 4, marginLeft: 6 },
+  highlightBadge: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  highlightBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   settingsPanel: {
     borderTopLeftRadius: 20,

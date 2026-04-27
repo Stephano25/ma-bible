@@ -1,3 +1,4 @@
+// app/favorites.tsx
 import React, { useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
@@ -9,11 +10,11 @@ import { useTheme } from '../src/context/ThemeContext';
 import { useBible } from '../src/context/BibleContext';
 import { Bookmark } from '../src/types';
 
-type FilterTab = 'tous' | 'recents' | 'fr' | 'en';
+type FilterTab = 'tous' | 'recents' | 'fr' | 'en' | 'mg';
 
 export default function FavorisScreen() {
   const { colors } = useTheme();
-  const { bookmarks, removeBookmark, fontSize } = useBible();
+  const { bookmarks, removeBookmark, fontSize, lang } = useBible();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<FilterTab>('tous');
 
@@ -22,9 +23,11 @@ export default function FavorisScreen() {
       case 'recents':
         return [...bookmarks].slice(0, 20);
       case 'fr':
-        return bookmarks.filter((b) => b.lang === 'fr');
+        return bookmarks.filter((b: Bookmark) => b.lang === 'fr');
       case 'en':
-        return bookmarks.filter((b) => b.lang === 'en');
+        return bookmarks.filter((b: Bookmark) => b.lang === 'en');
+      case 'mg':
+        return bookmarks.filter((b: Bookmark) => b.lang === 'mg');
       default:
         return bookmarks;
     }
@@ -53,31 +56,48 @@ export default function FavorisScreen() {
   };
 
   const handleOpen = (bm: Bookmark) => {
-    // On extrait bookIndex depuis l'id (format: bookIndex-chapterIndex-verseNum-lang)
     const parts = bm.id.split('-');
     router.push({
       pathname: '/read',
-      params: { bookIndex: parts[0], chapterIndex: parts[1] },
+      params: { 
+        bookIndex: parts[0], 
+        chapterIndex: parts[1],
+        highlightVerse: parts[2],
+        source: 'favorites'
+      },
     });
   };
 
   const styles = makeStyles(colors);
   const displayed = filteredBookmarks();
 
+  const getLangLabel = () => {
+    switch(activeTab) {
+      case 'fr': return 'Français';
+      case 'en': return 'English';
+      case 'mg': return 'Malagasy';
+      default: return '';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mes Favoris</Text>
-        <Text style={styles.headerSub}>{bookmarks.length} verset{bookmarks.length > 1 ? 's' : ''} sauvegardé{bookmarks.length > 1 ? 's' : ''}</Text>
+        <Text style={styles.headerTitle}>
+          {lang === 'fr' ? 'Mes Favoris' : lang === 'en' ? 'My Favorites' : 'Tiako'}
+        </Text>
+        <Text style={styles.headerSub}>
+          {bookmarks.length} {lang === 'fr' ? 'verset(s)' : lang === 'en' ? 'verse(s)' : 'andinin-teny'} sauvegardé(s)
+        </Text>
       </View>
 
-      {/* Onglets filtres */}
       <View style={styles.tabs}>
         {([
-          { key: 'tous', label: 'Tous' },
-          { key: 'recents', label: 'Récents' },
+          { key: 'tous', label: lang === 'fr' ? 'Tous' : lang === 'en' ? 'All' : 'Rehetra' },
+          { key: 'recents', label: lang === 'fr' ? 'Récents' : lang === 'en' ? 'Recent' : 'Vaovao' },
           { key: 'fr', label: '🇫🇷 FR' },
           { key: 'en', label: '🇬🇧 EN' },
+          { key: 'mg', label: '🇲🇬 MG' },
         ] as { key: FilterTab; label: string }[]).map((tab) => (
           <TouchableOpacity
             key={tab.key}
@@ -91,18 +111,34 @@ export default function FavorisScreen() {
         ))}
       </View>
 
+      {activeTab !== 'tous' && activeTab !== 'recents' && (
+        <View style={styles.filterInfo}>
+          <Text style={styles.filterInfoText}>
+            {displayed.length} {lang === 'fr' ? 'verset(s) en' : lang === 'en' ? 'verse(s) in' : 'andinin-teny amin\'ny'} {getLangLabel()}
+          </Text>
+        </View>
+      )}
+
       {bookmarks.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="bookmark-outline" size={56} color={colors.textMuted} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun favori</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            {lang === 'fr' ? 'Aucun favori' : lang === 'en' ? 'No favorites' : 'Tsy misy tiako'}
+          </Text>
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            Appuyez sur un verset dans l'écran de lecture pour l'ajouter ici.
+            {lang === 'fr' 
+              ? 'Appuyez sur un verset dans l\'écran de lecture pour l\'ajouter ici.' 
+              : lang === 'en' 
+                ? 'Tap on a verse in the reading screen to add it here.' 
+                : 'Tsindrio ny andinin-teny ao amin\'ny efijery famakiana raha te hampiditra azy eto.'}
           </Text>
         </View>
       ) : displayed.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="filter-outline" size={48} color={colors.textMuted} />
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>Aucun résultat pour ce filtre</Text>
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+            {lang === 'fr' ? 'Aucun résultat pour ce filtre' : lang === 'en' ? 'No results for this filter' : 'Tsy misy valiny ho an\'io sivana io'}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -110,16 +146,15 @@ export default function FavorisScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => handleOpen(item)}>
-              {/* Ref + langue */}
+            <TouchableOpacity style={styles.card} onPress={() => handleOpen(item)} activeOpacity={0.7}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardRef}>
                   {item.book} {item.chapter}:{item.verse}
                 </Text>
                 <View style={styles.cardActions}>
-                  <View style={[styles.langBadge, { backgroundColor: item.lang === 'fr' ? colors.primary + '20' : colors.accent + '20' }]}>
-                    <Text style={[styles.langBadgeText, { color: item.lang === 'fr' ? colors.primary : colors.accent }]}>
-                      {item.lang === 'fr' ? 'FR' : 'EN'}
+                  <View style={[styles.langBadge, { backgroundColor: item.lang === 'fr' ? colors.primary + '20' : item.lang === 'en' ? colors.accent + '20' : '#4CAF5020' }]}>
+                    <Text style={[styles.langBadgeText, { color: item.lang === 'fr' ? colors.primary : item.lang === 'en' ? colors.accent : '#4CAF50' }]}>
+                      {item.lang === 'fr' ? 'FR' : item.lang === 'en' ? 'EN' : 'MG'}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => handleShare(item)} style={styles.iconBtn}>
@@ -131,13 +166,13 @@ export default function FavorisScreen() {
                 </View>
               </View>
 
-              {/* Texte */}
               <Text style={[styles.cardText, { fontSize: fontSize - 2 }]} numberOfLines={4}>
                 "{item.text}"
               </Text>
 
-              {/* Date */}
-              <Text style={styles.cardDate}>Ajouté le {formatDate(item.addedAt)}</Text>
+              <Text style={styles.cardDate}>
+                {lang === 'fr' ? 'Ajouté le' : lang === 'en' ? 'Added on' : 'Nampiana tamin\'ny'} {formatDate(item.addedAt)}
+              </Text>
             </TouchableOpacity>
           )}
         />
@@ -163,6 +198,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    flexWrap: 'wrap',
   },
   tab: {
     paddingHorizontal: 14,
@@ -173,6 +209,17 @@ const makeStyles = (colors: any) => StyleSheet.create({
   tabActive: { backgroundColor: colors.primary },
   tabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   tabTextActive: { color: '#fff' },
+  filterInfo: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.surfaceAlt,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  filterInfoText: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '700' },
   emptyText: { textAlign: 'center', lineHeight: 22 },
