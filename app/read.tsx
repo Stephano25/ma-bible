@@ -22,9 +22,8 @@ export default function LectureScreen() {
   const [selectedChapterIndex, setSelectedChapterIndex] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [filterTestament, setFilterTestament] = useState<'all' | 'ancien' | 'nouveau'>('all');
-  const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
+  const [highlightedVerses, setHighlightedVerses] = useState<Set<number>>(new Set()); // Stocke les versets surlignés
   const scrollRef = useRef<ScrollView>(null);
-  const verseRefs = useRef<Map<number, View>>(new Map());
 
   const livres = bibleData?.livres || [];
 
@@ -37,24 +36,7 @@ export default function LectureScreen() {
     if (params.testament) {
       setFilterTestament(params.testament as any);
     }
-    if (params.highlightVerse) {
-      console.log('🎯 Verset à surligner:', params.highlightVerse);
-      setHighlightedVerse(Number(params.highlightVerse));
-    }
-    const timer = setTimeout(() => {
-      if (params.highlightVerse) {
-        const verseNum = Number(params.highlightVerse);
-        const ref = verseRefs.current.get(verseNum);
-        if (ref && scrollRef.current) {
-          ref.measureLayout(scrollRef.current as any, (x, y) => {
-            scrollRef.current?.scrollTo({ y: y - 100, animated: true });
-          });
-        }
-      }
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [params.bookIndex, params.chapterIndex, params.testament, params.highlightVerse]);
+  }, [params.bookIndex, params.chapterIndex, params.testament]);
 
   // Regrouper livres par catégorie
   const livresFiltres = livres.filter((l: any) => {
@@ -81,6 +63,7 @@ export default function LectureScreen() {
     setSelectedBookIndex(bookOriginalIndex);
     setSelectedChapterIndex(0);
     setViewMode('chapitres');
+    setHighlightedVerses(new Set()); // Réinitialiser les surlignages
   };
 
   const selectChapter = (chapterIndex: number) => {
@@ -94,9 +77,23 @@ export default function LectureScreen() {
       chapterNum: chapterIndex + 1,
     });
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-    setHighlightedVerse(null);
+    setHighlightedVerses(new Set()); // Réinitialiser les surlignages quand on change de chapitre
   };
 
+  // Action sur appui long : surligner le verset
+  const handleLongPress = (versetNum: number) => {
+    setHighlightedVerses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(versetNum)) {
+        newSet.delete(versetNum); // Enlever le surlignage si déjà présent
+      } else {
+        newSet.add(versetNum); // Ajouter le surlignage
+      }
+      return newSet;
+    });
+  };
+
+  // Action sur clic court : ajouter aux favoris
   const toggleBookmark = (versetNum: number, texte: string) => {
     const id = `${selectedBookIndex}-${selectedChapterIndex}-${versetNum}-${lang}`;
     if (isBookmarked(id)) {
@@ -262,43 +259,51 @@ export default function LectureScreen() {
         {versets.map((v: any) => {
           const id = `${selectedBookIndex}-${selectedChapterIndex}-${v.numero}-${lang}`;
           const bookmarked = isBookmarked(id);
-          const isHighlighted = highlightedVerse === v.numero;
+          const isHighlighted = highlightedVerses.has(v.numero);
           
           return (
-            <TouchableOpacity
+            <View
               key={v.numero}
-              ref={ref => {
-                if (ref && isHighlighted) {
-                  verseRefs.current.set(v.numero, ref as View);
-                }
-              }}
               style={[
-                styles.verset, 
-                bookmarked && styles.versetBookmarked,
+                styles.versetWrapper,
                 isHighlighted && styles.versetHighlighted
               ]}
-              onLongPress={() => partagerVerset(v.numero, v.texte)}
-              onPress={() => toggleBookmark(v.numero, v.texte)}
             >
-              <Text style={[styles.versetNum, isHighlighted && { color: colors.primary, fontWeight: 'bold' }]}>
-                {v.numero}
-              </Text>
-              <Text style={[styles.versetText, { fontSize }, isHighlighted && { fontWeight: '600', color: colors.primary }]}>
-                {v.texte}
-              </Text>
-              {bookmarked && (
-                <Ionicons name="bookmark" size={16} color={colors.accent} style={styles.versetIcon} />
-              )}
+              <TouchableOpacity
+                style={styles.versetTouchable}
+                onLongPress={() => handleLongPress(v.numero)}
+                onPress={() => toggleBookmark(v.numero, v.texte)}
+                activeOpacity={0.6}
+              >
+                <Text style={[styles.versetNum, isHighlighted && { color: colors.primary, fontWeight: 'bold' }]}>
+                  {v.numero}
+                </Text>
+                <Text style={[styles.versetText, { fontSize }, isHighlighted && { fontWeight: '500' }]}>
+                  {v.texte}
+                </Text>
+                {bookmarked && (
+                  <Ionicons name="bookmark" size={16} color={colors.accent} style={styles.versetIcon} />
+                )}
+              </TouchableOpacity>
               {isHighlighted && (
                 <View style={[styles.highlightBadge, { backgroundColor: colors.primary }]}>
                   <Text style={styles.highlightBadgeText}>★</Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </View>
           );
         })}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Info bulle pour expliquer le surlignage */}
+      <View style={styles.infoBubble}>
+        <Text style={styles.infoText}>
+          {lang === 'fr' ? 'Maintenez appuyé sur un verset pour le surligner' : 
+           lang === 'en' ? 'Long press on a verse to highlight it' : 
+           'Tsindrio ela ny andinin-teny raha te hampisongadina azy'}
+        </Text>
+      </View>
 
       <Modal visible={showSettings} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowSettings(false)}>
@@ -320,9 +325,9 @@ export default function LectureScreen() {
               ))}
             </View>
             <Text style={[styles.settingsHint, { color: colors.textMuted }]}>
-              {lang === 'fr' ? 'Appuyez sur un verset pour l\'ajouter aux favoris.\nMaintenez pour partager.' : 
-               lang === 'en' ? 'Tap on a verse to add to favorites.\nLong press to share.' : 
-               'Tsindrio ny andinin-teny raha te hampiditra azy ao amin\'ny tiako.\nTsindrio ela raha te hizara.'}
+              {lang === 'fr' ? 'Appuyez sur un verset pour l\'ajouter aux favoris.\nMaintenez pour surligner.' : 
+               lang === 'en' ? 'Tap on a verse to add to favorites.\nLong press to highlight.' : 
+               'Tsindrio ny andinin-teny raha te hampiditra azy ao amin\'ny tiako.\nTsindrio ela raha te hampisongadina azy.'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -419,18 +424,16 @@ const makeStyles = (colors: any) => StyleSheet.create({
   navBtnText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   chapterNavTitle: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
   versetsContent: { padding: 16 },
-  verset: {
+  versetWrapper: {
+    marginBottom: 4,
+    position: 'relative',
+  },
+  versetTouchable: {
     flexDirection: 'row',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     alignItems: 'flex-start',
-  },
-  versetBookmarked: {
-    backgroundColor: colors.bookmarkBg,
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-    borderRadius: 4,
   },
   versetHighlighted: {
     backgroundColor: 'rgba(196, 127, 23, 0.15)',
@@ -464,6 +467,21 @@ const makeStyles = (colors: any) => StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  infoBubble: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  infoText: {
+    color: '#fff',
+    fontSize: 12,
   },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   settingsPanel: {

@@ -42,7 +42,8 @@ export function useBookmarks() {
     return bookmarks.filter(b => b.category === category);
   }, [bookmarks]);
 
-  const getBookmarksByLang = useCallback((lang: 'fr' | 'en') => {
+  // Ajout du support pour le Malagasy
+  const getBookmarksByLang = useCallback((lang: 'fr' | 'en' | 'mg') => {
     return bookmarks.filter(b => b.lang === lang);
   }, [bookmarks]);
 

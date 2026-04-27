@@ -2,17 +2,22 @@
 import { useState, useEffect } from 'react';
 import { BibleData, Livre } from '../types';
 
-const bibleFR = require('../../assets/data/segond_19.json');
+// Correction : segond_1910.json au lieu de segond_19.json
+const bibleFR = require('../../assets/data/segond_1910.json');
 const bibleEN = require('../../assets/data/kjv.json');
+const bibleMG = require('../../assets/data/malgasy.json');
 
-export function useBibleData(lang: 'fr' | 'en') {
+export function useBibleData(lang: 'fr' | 'en' | 'mg') {
   const [bibleData, setBibleData] = useState<BibleData>(bibleFR);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setIsLoading(true);
     try {
-      const data = lang === 'fr' ? bibleFR : bibleEN;
+      let data;
+      if (lang === 'fr') data = bibleFR;
+      else if (lang === 'en') data = bibleEN;
+      else data = bibleMG;
       setBibleData(data);
     } catch (error) {
       console.error('Error loading bible data:', error);
